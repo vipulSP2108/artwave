@@ -1,0 +1,1137 @@
+
+================================================================================
+         ARTWAVE — ARTISTIC WORK SHOWCASE, RANKING & COMMUNITY PLATFORM
+                          COMPLETE PROJECT BLUEPRINT
+================================================================================
+Version     : 1.0.0
+Last Updated: May 2026
+Status      : Planning / Pre-Development
+--------------------------------------------------------------------------------
+
+
+════════════════════════════════════════════════════════════════════════════════
+ TABLE OF CONTENTS
+════════════════════════════════════════════════════════════════════════════════
+ 1.  Project Overview
+ 2.  Core Philosophy & Design Principles
+ 3.  Category System
+ 4.  Timeline & Window Mechanics (THE CYCLE)
+ 5.  User Roles & Access Control
+ 6.  Feature Breakdown by Role
+ 7.  Recommendation & Ranking Algorithms
+ 8.  Rating System Design
+ 9.  Data Architecture (Local JSON Schema)
+10.  File & Folder Structure
+11.  constants.js — Full Breakdown
+12.  Admin Panel — Design & Workflow
+13.  UI/UX Guidelines
+14.  Content Display Rules (Dimensions & Adaptivity)
+15.  Hall of Fame / Teaser / Archive System
+16.  Notification & State Machine
+17.  Future Backend Migration Notes
+18.  Page-by-Page Specification
+19.  Edge Cases & Rules
+20.  Implementation Roadmap (Phases)
+================================================================================
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 1. PROJECT OVERVIEW
+────────────────────────────────────────────────────────────────────────────────
+
+ArtWave is a periodic artistic showcase platform where creators submit work in
+defined category cycles. Each cycle has a strict timeline. Community votes
+determine rankings. An admin moderates content before it goes live. The platform
+celebrates top works and archives all history.
+
+Key Differentiators:
+  - Cyclic submission windows (not always-open)
+  - Category-isolated ecosystems (each category = its own world)
+  - Admin-gated publishing (quality filter, not censorship)
+  - Algorithmic ranking with community voting
+  - Permanent Hall of Fame with historical archive
+  - Local-first data (JSON files), backend-ready schema
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 2. CORE PHILOSOPHY & DESIGN PRINCIPLES
+────────────────────────────────────────────────────────────────────────────────
+
+  [P1] SIMPLICITY FIRST
+        Every admin action must be 1-click or 2-click. No complex forms for
+        moderation. Approve / Reject. Done.
+
+  [P2] CATEGORY INDEPENDENCE
+        Each category (Illustration, Story, etc.) has:
+          - Its own homepage
+          - Its own submission feed
+          - Its own ranking board
+          - Its own cycle state
+          - Its own admin queue
+
+  [P3] EXTENSIBILITY
+        Adding a new category = adding one object to CATEGORIES array in
+        constants.js. Nothing else changes.
+
+  [P4] CONTENT RESPECT
+        Submitted artwork/text is shown at its native aspect ratio. No crops.
+        No distortion. The UI wraps around the content, not the other way.
+
+  [P5] LOCAL-FIRST, BACKEND-READY
+        All data lives in /data/*.json with a schema mirroring what a REST API
+        or database would expect. Migration = write API routes that read/write
+        the same shape.
+
+  [P6] FAIRNESS
+        Voting is one-vote-per-user-per-submission. Window-based cycles prevent
+        eternal dominance. Hall of Fame preserves legacy winners.
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 3. CATEGORY SYSTEM
+────────────────────────────────────────────────────────────────────────────────
+
+  INITIAL CATEGORIES (defined in constants.js → CATEGORIES array):
+
+  ┌──────────────┬───────────────────────────────────────────────────────────┐
+  │ ID           │ illustration                                               │
+  │ Label        │ Illustration                                               │
+  │ Icon         │ 🎨                                                         │
+  │ Description  │ Digital art, drawings, paintings, sketches                 │
+  │ Allowed Types│ image/jpeg, image/png, image/gif, image/webp               │
+  │ Max File Size│ 10 MB                                                      │
+  │ Display Mode │ IMAGE                                                      │
+  └──────────────┴───────────────────────────────────────────────────────────┘
+
+  ┌──────────────┬───────────────────────────────────────────────────────────┐
+  │ ID           │ story                                                      │
+  │ Label        │ Story                                                      │
+  │ Icon         │ ✍️                                                          │
+  │ Description  │ Short stories, flash fiction, poetry, creative writing     │
+  │ Allowed Types│ text (inline textarea)                                     │
+  │ Max Length   │ 5000 words                                                 │
+  │ Display Mode │ TEXT                                                       │
+  └──────────────┴───────────────────────────────────────────────────────────┘
+
+  HOW TO ADD A NEW CATEGORY (future):
+    In constants.js → CATEGORIES, add:
+    {
+      id: "photography",
+      label: "Photography",
+      icon: "📷",
+      description: "...",
+      allowedTypes: ["image/jpeg", "image/png"],
+      maxFileSizeMB: 15,
+      displayMode: "IMAGE",
+      color: "#...",   // accent color for this category's theme
+      active: true
+    }
+    That's it. All routing, pages, rankings auto-generate from this array.
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 4. TIMELINE & WINDOW MECHANICS — "THE CYCLE"
+────────────────────────────────────────────────────────────────────────────────
+
+  Each category runs on its own independent cycle. A cycle has 5 phases:
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │                         THE ARTWAVE CYCLE                               │
+  │                                                                         │
+  │  Phase 1: SUBMISSION WINDOW        [Days  1 –  5]    5 days             │
+  │  Phase 2: ADMIN REVIEW WINDOW      [Days  6 – 10]    5 days             │
+  │  Phase 3: VOTING / LIVE PERIOD     [Days 11 – 40]   30 days             │
+  │     Sub-phase: LATE SUBMISSION     [Days 21 – 25]    5 days (overlap)   │
+  │  Phase 4: RESULTS & WRAP-UP        [Days 41 – 42]    2 days             │
+  │  Phase 5: ARCHIVE + NEXT CYCLE     [Day  43+]        starts new cycle   │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  DETAILED PHASE DESCRIPTIONS:
+
+  PHASE 1 — SUBMISSION WINDOW (Days 1–5)
+    - Users can submit ONE entry per category per cycle
+    - Submissions are stored with status: "pending_review"
+    - UI shows countdown timer to close of window
+    - Late submissions (past Day 5) are rejected at UI level
+    - Admin can see pending queue forming in real-time
+
+  PHASE 2 — ADMIN REVIEW WINDOW (Days 6–10)
+    - Submission window is CLOSED
+    - Admin reviews all pending_review items
+    - Admin action: APPROVE → status: "live"
+    - Admin action: REJECT → status: "rejected" + optional reason
+    - Approved items are queued for live on Day 11
+    - If admin misses review window, items auto-expire (not published)
+    - SIMPLICITY: Admin sees a card with preview + Approve + Reject. Two buttons.
+
+  PHASE 3 — LIVE / VOTING PERIOD (Days 11–40)
+    - All approved submissions are publicly visible
+    - Logged-in users can vote (upvote only, one per submission)
+    - Rankings update in real-time as votes come in
+    - Rank is calculated via weighted score (see Section 7)
+
+  PHASE 3b — LATE SUBMISSION (Days 21–25)
+    - A second 5-day window opens for new submissions
+    - These go through the same admin review but admin has Days 26–30
+    - Late submissions are flagged with a "Late Entry" badge
+    - They compete in the SAME ranking pool
+    - This gives the cycle freshness in the final stretch
+
+  PHASE 4 — RESULTS (Days 41–42)
+    - Voting closes
+    - Final rankings are frozen
+    - Winner announcement banner shown
+    - Hall of Fame entry is created for #1 ranked work
+    - "Teaser" is set to the #1 work for next cycle's landing
+
+  PHASE 5 — ARCHIVE
+    - All entries from the cycle are moved to archive
+    - Accessible via "Past Cycles" / Hall of Fame
+    - New cycle begins (Day 1 of next cycle)
+
+  CYCLE CONSTANTS (in constants.js):
+    CYCLE_SUBMISSION_DAYS    = 5
+    CYCLE_ADMIN_REVIEW_DAYS  = 5
+    CYCLE_LIVE_DAYS          = 30
+    CYCLE_LATE_SUBMIT_START  = 20   (day within live period)
+    CYCLE_LATE_SUBMIT_DAYS   = 5
+    CYCLE_LATE_REVIEW_DAYS   = 5
+    CYCLE_WRAP_UP_DAYS       = 2
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 5. USER ROLES & ACCESS CONTROL
+────────────────────────────────────────────────────────────────────────────────
+
+  THREE ROLES (defined in constants.js → ROLES):
+
+  ┌──────────────┬────────────────────────────────────────────────────────────┐
+  │ VISITOR      │ Not logged in                                               │
+  │              │ Can: Browse, view submissions, view rankings, view archive  │
+  │              │ Cannot: Submit, vote, comment                               │
+  └──────────────┴────────────────────────────────────────────────────────────┘
+  ┌──────────────┬────────────────────────────────────────────────────────────┐
+  │ USER         │ Logged-in registered account                                │
+  │              │ Can: Everything Visitor can +                               │
+  │              │      Submit work (1 per category per cycle)                 │
+  │              │      Vote on others' submissions (not own)                  │
+  │              │      View own submission status                             │
+  └──────────────┴────────────────────────────────────────────────────────────┘
+  ┌──────────────┬────────────────────────────────────────────────────────────┐
+  │ ADMIN        │ Designated admin account(s) (set in constants.js)           │
+  │              │ Can: Everything User can +                                  │
+  │              │      Access /admin panel                                    │
+  │              │      Approve / Reject submissions                           │
+  │              │      Manage cycles (start/end manually if needed)           │
+  │              │      View all users and their submissions                   │
+  └──────────────┴────────────────────────────────────────────────────────────┘
+
+  ADMIN ACCESS CONTROL (in constants.js):
+    ADMIN_USERNAMES = ["admin", "artwave_mod"]   // or by user ID
+    ADMIN_PANEL_PATH = "/admin"
+    ADMIN_SESSION_TIMEOUT_MINUTES = 60
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 6. FEATURE BREAKDOWN BY ROLE
+────────────────────────────────────────────────────────────────────────────────
+
+  VISITOR FEATURES:
+    ✓ Landing page with teaser (last cycle's winner)
+    ✓ Category pages (browse live submissions)
+    ✓ Ranking leaderboard (read-only)
+    ✓ Hall of Fame (all past winners)
+    ✓ Individual submission view (full art/text display)
+    ✓ Countdown timer to next submission window
+
+  USER FEATURES (all of above +):
+    ✓ Register / Login / Logout
+    ✓ Submit work during submission window
+    ✓ Track submission status (pending/approved/rejected)
+    ✓ Vote on live submissions (thumbs up / star — one per item)
+    ✓ Profile page (own submissions history)
+    ✓ Notification badge when submission is approved/rejected
+
+  ADMIN FEATURES (all of above +):
+    ✓ Admin dashboard (queue count per category)
+    ✓ Review queue (list of pending submissions)
+    ✓ One-click Approve (sets status: live)
+    ✓ One-click Reject (sets status: rejected, optional note)
+    ✓ Cycle management panel (current phase, override if needed)
+    ✓ Stats overview (submissions count, votes count, active users)
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 7. RECOMMENDATION & RANKING ALGORITHMS
+────────────────────────────────────────────────────────────────────────────────
+
+  7.1 PRIMARY RANKING SCORE (Wilson Score Lower Bound)
+  ─────────────────────────────────────────────────────
+  Used for: Main leaderboard ranking during live period
+
+  Formula:
+    Given:
+      n = total votes received
+      p = proportion of upvotes (since we only do upvotes, p = upvotes / n)
+      z = 1.96  (95% confidence, from constants: RANKING_Z_SCORE)
+
+    WilsonScore = (p + z²/(2n) - z * sqrt((p(1-p) + z²/(4n)) / n))
+                  ─────────────────────────────────────────────────
+                              1 + z²/n
+
+  Why Wilson Score?
+    - Prevents brand-new items with 1 vote from topping the chart
+    - A submission with 100 votes at 80% beats one with 2 votes at 100%
+    - Statistically fair and proven (used by Reddit, Yelp, etc.)
+
+  Edge case: if n = 0, score = 0 (shown at bottom / "not yet voted")
+
+  7.2 RECENCY BOOST
+  ─────────────────────────────────────────────────────
+  Used for: Giving late entries a fair start
+
+  Late Entry Boost:
+    If submission is a "late entry" (submitted in Days 21–25):
+      boostedScore = wilsonScore * LATE_ENTRY_BOOST_FACTOR
+      LATE_ENTRY_BOOST_FACTOR = 1.15  (15% boost, in constants.js)
+      Boost expires after BOOST_DURATION_DAYS = 5 days
+      After that, pure Wilson score
+
+  7.3 FINAL DISPLAY RANKING
+  ─────────────────────────────────────────────────────
+  displayRank is computed as:
+    sortedByFinalScore DESC → assign rank 1, 2, 3...
+    Ties broken by: earlier submission date wins (first mover advantage)
+
+  7.4 RECOMMENDATION ENGINE (for "You Might Also Like")
+  ─────────────────────────────────────────────────────
+  Simple collaborative tag-based recommendation (no ML needed):
+
+  Step 1: Tag inference
+    - Images: no auto-tags (admin can optionally add tags during review)
+    - Stories: extract top 5 keywords (simple frequency analysis, stopwords removed)
+
+  Step 2: For a submission S, find other submissions with ≥ 2 matching tags
+    Similarity Score = (matching tags count / total unique tags) * wilsonScore
+
+  Step 3: Return top 3 most similar → shown in "More Like This" section
+
+  If no tags match: fall back to "Top Rated in This Cycle" (top 3 by rank)
+
+  7.5 TRENDING ALGORITHM (for "Trending Now" section)
+  ─────────────────────────────────────────────────────
+  trendScore = votes_in_last_24h * TREND_RECENCY_WEIGHT
+             + votes_in_last_48h * 0.5
+             + wilsonScore * 0.3
+
+  TREND_RECENCY_WEIGHT = 1.0  (in constants.js)
+  Shown on category homepage as a "Trending" badge (top 3)
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 8. RATING SYSTEM DESIGN
+────────────────────────────────────────────────────────────────────────────────
+
+  VOTING MODEL: Upvote Only (thumbs up / star icon)
+  ─────────────────────────────────────────────────
+  Rationale: Downvotes create negativity; since this is art, we celebrate.
+
+  Rules:
+    - One vote per logged-in user per submission
+    - Cannot vote on own submission (button disabled + tooltip)
+    - Voting only during LIVE period (Days 11–40)
+    - Vote is toggleable: click again to un-vote
+    - Vote stored as: { userId, submissionId, timestamp, cycleId }
+
+  VOTE DISPLAY:
+    - Count shown: "142 ♥"
+    - Current user's voted state: filled heart vs outline
+    - Rank badge: shown when rank ≤ 10 (gold #1, silver #2, bronze #3)
+
+  ANTI-ABUSE:
+    - Rate limit: MAX_VOTES_PER_HOUR = 20 per user (in constants.js)
+    - Same IP cannot create multiple accounts (basic check, localStorage flag)
+    - Votes from accounts < ACCOUNT_MIN_AGE_HOURS = 24 hours old: ignored
+      in ranking but stored (flagged as "provisional")
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 9. DATA ARCHITECTURE — LOCAL JSON SCHEMA
+────────────────────────────────────────────────────────────────────────────────
+
+  All data stored in /data/ folder as JSON files.
+  Each file maps to what a database table/collection would be.
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ FILE: /data/users.json                                                  │
+  └─────────────────────────────────────────────────────────────────────────┘
+  [
+    {
+      "id": "usr_abc123",
+      "username": "creator42",
+      "email": "user@example.com",
+      "passwordHash": "bcrypt_hash_here",
+      "role": "user",                     // "user" | "admin"
+      "createdAt": "2026-01-01T00:00:00Z",
+      "profilePicUrl": null,
+      "bio": "",
+      "totalVotesReceived": 0,
+      "totalSubmissions": 0,
+      "isActive": true
+    }
+  ]
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ FILE: /data/cycles.json                                                 │
+  └─────────────────────────────────────────────────────────────────────────┘
+  [
+    {
+      "id": "cycle_001_illustration",
+      "categoryId": "illustration",
+      "cycleNumber": 1,
+      "phase": "live",                   // submission|review|live|late_submission|late_review|results|archive
+      "submissionStart": "2026-01-01T00:00:00Z",
+      "submissionEnd":   "2026-01-06T00:00:00Z",
+      "reviewStart":     "2026-01-06T00:00:00Z",
+      "reviewEnd":       "2026-01-11T00:00:00Z",
+      "liveStart":       "2026-01-11T00:00:00Z",
+      "liveEnd":         "2026-02-10T00:00:00Z",
+      "lateSubmitStart": "2026-01-31T00:00:00Z",
+      "lateSubmitEnd":   "2026-02-05T00:00:00Z",
+      "lateReviewStart": "2026-02-05T00:00:00Z",
+      "lateReviewEnd":   "2026-02-10T00:00:00Z",
+      "resultsAt":       "2026-02-10T00:00:00Z",
+      "archiveAt":       "2026-02-12T00:00:00Z",
+      "winnerId": null,                  // submissionId of winner, set at results phase
+      "createdAt": "2026-01-01T00:00:00Z"
+    }
+  ]
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ FILE: /data/submissions.json                                            │
+  └─────────────────────────────────────────────────────────────────────────┘
+  [
+    {
+      "id": "sub_xyz789",
+      "cycleId": "cycle_001_illustration",
+      "categoryId": "illustration",
+      "userId": "usr_abc123",
+      "title": "Sunset Dream",
+      "description": "A quiet evening...",
+      "contentType": "image",            // "image" | "text"
+      "contentUrl": "/data/uploads/sub_xyz789.jpg",  // for images
+      "contentText": null,               // for text/stories
+      "contentWidth": 1920,              // original dimensions (images)
+      "contentHeight": 1080,
+      "tags": ["sunset", "digital", "landscape"],
+      "isLateEntry": false,
+      "status": "live",                  // pending_review|live|rejected|archived
+      "adminNote": null,                 // rejection reason if any
+      "reviewedBy": null,                // admin userId
+      "reviewedAt": null,
+      "submittedAt": "2026-01-03T10:00:00Z",
+      "voteCount": 0,                    // denormalized for quick reads
+      "wilsonScore": 0.0,                // recomputed on each vote
+      "trendScore": 0.0,                 // recomputed hourly
+      "rank": null                       // assigned at results phase
+    }
+  ]
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ FILE: /data/votes.json                                                  │
+  └─────────────────────────────────────────────────────────────────────────┘
+  [
+    {
+      "id": "vote_001",
+      "submissionId": "sub_xyz789",
+      "userId": "usr_abc123",
+      "cycleId": "cycle_001_illustration",
+      "timestamp": "2026-01-15T08:30:00Z",
+      "isProvisional": false             // true if account < 24h old
+    }
+  ]
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ FILE: /data/halloffame.json                                             │
+  └─────────────────────────────────────────────────────────────────────────┘
+  [
+    {
+      "id": "hof_001",
+      "submissionId": "sub_xyz789",
+      "categoryId": "illustration",
+      "cycleId": "cycle_001_illustration",
+      "cycleNumber": 1,
+      "userId": "usr_abc123",
+      "username": "creator42",
+      "title": "Sunset Dream",
+      "contentUrl": "/data/uploads/sub_xyz789.jpg",
+      "contentType": "image",
+      "finalVoteCount": 142,
+      "finalRank": 1,
+      "archivedAt": "2026-02-12T00:00:00Z",
+      "isTeaserActive": true             // shown as current teaser on homepage
+    }
+  ]
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ FILE: /data/sessions.json  (simple auth tokens)                         │
+  └─────────────────────────────────────────────────────────────────────────┘
+  [
+    {
+      "token": "tok_randomstring",
+      "userId": "usr_abc123",
+      "createdAt": "2026-01-01T00:00:00Z",
+      "expiresAt": "2026-01-02T00:00:00Z"
+    }
+  ]
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ FILE: /data/uploads/  (binary files, images)                            │
+  └─────────────────────────────────────────────────────────────────────────┘
+  Images saved as: sub_{id}.{ext}
+  Referenced by submissions.contentUrl
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 10. FILE & FOLDER STRUCTURE
+────────────────────────────────────────────────────────────────────────────────
+
+  artwave/
+  ├── index.html                    ← landing page
+  ├── constants.js                  ← ALL constants (see Section 11)
+  ├── app.js                        ← main router / state management
+  ├── auth.js                       ← login, register, session management
+  ├── cycle.js                      ← cycle phase engine & timers
+  ├── ranking.js                    ← Wilson score, ranking, trending
+  ├── recommendation.js             ← tag matching, "more like this"
+  ├── storage.js                    ← read/write JSON data files
+  ├── utils.js                      ← helpers (dates, ID gen, etc.)
+  │
+  ├── pages/
+  │   ├── home.html                 ← global landing / teaser
+  │   ├── category.html             ← category homepage (template, data-driven)
+  │   ├── submit.html               ← submission form
+  │   ├── submission.html           ← single submission view
+  │   ├── leaderboard.html          ← rankings for a category/cycle
+  │   ├── halloffame.html           ← all-time winners archive
+  │   ├── profile.html              ← user profile & submission history
+  │   ├── login.html
+  │   ├── register.html
+  │   └── admin/
+  │       ├── dashboard.html        ← admin overview
+  │       ├── queue.html            ← review queue (approve/reject)
+  │       └── cycles.html           ← cycle management
+  │
+  ├── styles/
+  │   ├── main.css                  ← global + CSS variables
+  │   ├── components.css            ← buttons, cards, badges
+  │   ├── category-themes.css       ← per-category color overrides
+  │   ├── admin.css                 ← admin panel styles
+  │   └── responsive.css            ← breakpoints
+  │
+  ├── components/
+  │   ├── nav.js                    ← top navigation (auto-reads categories)
+  │   ├── countdown.js              ← cycle phase countdown timer
+  │   ├── submission-card.js        ← artwork card (adaptive dimensions)
+  │   ├── vote-button.js            ← heart/star vote button
+  │   ├── rank-badge.js             ← #1 gold, #2 silver, etc.
+  │   ├── teaser-banner.js          ← homepage teaser (winner display)
+  │   └── phase-banner.js           ← "Submission Open / Voting Open / etc."
+  │
+  └── data/
+      ├── users.json
+      ├── cycles.json
+      ├── submissions.json
+      ├── votes.json
+      ├── halloffame.json
+      ├── sessions.json
+      └── uploads/                  ← uploaded image files
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 11. constants.js — FULL BREAKDOWN
+────────────────────────────────────────────────────────────────────────────────
+
+  Everything that should never be hardcoded in logic files lives here.
+  This is the single source of truth for all configuration.
+
+  ── SITE INFO ──────────────────────────────────────────────────────────────
+  APP_NAME                    = "ArtWave"
+  APP_TAGLINE                 = "Create. Vote. Celebrate."
+  APP_VERSION                 = "1.0.0"
+
+  ── CATEGORIES ─────────────────────────────────────────────────────────────
+  CATEGORIES = [
+    {
+      id: "illustration",
+      label: "Illustration",
+      icon: "🎨",
+      description: "Digital art, drawings, paintings, sketches",
+      allowedMimeTypes: ["image/jpeg","image/png","image/gif","image/webp"],
+      maxFileSizeMB: 10,
+      displayMode: "IMAGE",
+      accentColor: "#FF6B6B",
+      bgGradient: "linear-gradient(135deg, #FF6B6B, #FFE66D)",
+      active: true
+    },
+    {
+      id: "story",
+      label: "Story",
+      icon: "✍️",
+      description: "Short stories, flash fiction, poetry",
+      allowedMimeTypes: [],
+      maxWords: 5000,
+      minWords: 50,
+      displayMode: "TEXT",
+      accentColor: "#4ECDC4",
+      bgGradient: "linear-gradient(135deg, #4ECDC4, #556270)",
+      active: true
+    }
+    // Add more objects here for new categories
+  ]
+
+  ── CYCLE TIMING ───────────────────────────────────────────────────────────
+  CYCLE_SUBMISSION_DAYS       = 5
+  CYCLE_ADMIN_REVIEW_DAYS     = 5
+  CYCLE_LIVE_DAYS             = 30
+  CYCLE_LATE_SUBMIT_START_DAY = 20      // day 20 of live period
+  CYCLE_LATE_SUBMIT_DAYS      = 5
+  CYCLE_LATE_REVIEW_DAYS      = 5
+  CYCLE_WRAP_UP_DAYS          = 2
+
+  ── CYCLE PHASES (enum) ────────────────────────────────────────────────────
+  PHASE = {
+    SUBMISSION:         "submission",
+    ADMIN_REVIEW:       "admin_review",
+    LIVE:               "live",
+    LATE_SUBMISSION:    "late_submission",
+    LATE_REVIEW:        "late_review",
+    RESULTS:            "results",
+    ARCHIVE:            "archive"
+  }
+
+  ── USER ROLES ─────────────────────────────────────────────────────────────
+  ROLES = {
+    VISITOR:  "visitor",
+    USER:     "user",
+    ADMIN:    "admin"
+  }
+
+  ── ADMIN ACCESS ───────────────────────────────────────────────────────────
+  ADMIN_USERNAMES             = ["admin", "artwave_mod"]
+  ADMIN_PANEL_PATH            = "/admin"
+  ADMIN_SESSION_TIMEOUT_MINS  = 60
+
+  ── SUBMISSION RULES ───────────────────────────────────────────────────────
+  MAX_SUBMISSIONS_PER_USER_PER_CYCLE = 1
+  MAX_TITLE_LENGTH                   = 100
+  MAX_DESCRIPTION_LENGTH             = 500
+  MAX_TAGS_PER_SUBMISSION            = 5
+  MAX_TAG_LENGTH                     = 20
+
+  ── VOTING RULES ───────────────────────────────────────────────────────────
+  MAX_VOTES_PER_HOUR                 = 20
+  ACCOUNT_MIN_AGE_HOURS              = 24     // votes before this are provisional
+  CAN_VOTE_OWN_SUBMISSION            = false
+
+  ── RANKING ALGORITHM PARAMS ───────────────────────────────────────────────
+  RANKING_Z_SCORE                    = 1.96   // 95% confidence for Wilson score
+  LATE_ENTRY_BOOST_FACTOR            = 1.15   // 15% boost for late entries
+  BOOST_DURATION_DAYS                = 5
+  TREND_RECENCY_WEIGHT               = 1.0
+  TRENDING_BADGE_COUNT               = 3      // how many get "Trending" badge
+  LEADERBOARD_PAGE_SIZE              = 20
+
+  ── DISPLAY / UI ───────────────────────────────────────────────────────────
+  SUBMISSION_CARD_MAX_HEIGHT_PX      = 500    // max card height
+  SUBMISSION_CARD_MIN_HEIGHT_PX      = 200    // min card height
+  IMAGE_FIT_MODE                     = "contain"  // never crop; letterbox
+  TEXT_PREVIEW_WORDS                 = 80     // words shown in card preview
+  HALL_OF_FAME_PER_PAGE              = 12
+  TEASER_AUTOPLAY_INTERVAL_MS        = 0      // 0 = no autoplay rotation
+
+  ── AUTH / SESSION ─────────────────────────────────────────────────────────
+  SESSION_DURATION_HOURS             = 24
+  MIN_PASSWORD_LENGTH                = 8
+  MAX_USERNAME_LENGTH                = 30
+  MIN_USERNAME_LENGTH                = 3
+
+  ── DATA PATHS ─────────────────────────────────────────────────────────────
+  DATA_PATH                          = "./data"
+  UPLOADS_PATH                       = "./data/uploads"
+  USERS_FILE                         = "./data/users.json"
+  CYCLES_FILE                        = "./data/cycles.json"
+  SUBMISSIONS_FILE                   = "./data/submissions.json"
+  VOTES_FILE                         = "./data/votes.json"
+  HOF_FILE                           = "./data/halloffame.json"
+  SESSIONS_FILE                      = "./data/sessions.json"
+
+  ── RECOMMENDATION ─────────────────────────────────────────────────────────
+  RECOMMENDATION_COUNT               = 3
+  RECOMMENDATION_MIN_TAG_MATCH       = 2
+  STOPWORDS                          = ["the","a","an","is","in","of","and",...]
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 12. ADMIN PANEL — DESIGN & WORKFLOW
+────────────────────────────────────────────────────────────────────────────────
+
+  The admin panel is accessed at /admin and is only visible to users whose
+  username is in ADMIN_USERNAMES constant.
+
+  DASHBOARD PAGE (/admin/dashboard)
+  ──────────────────────────────────
+  Shows at a glance:
+    - Per category: how many items in review queue
+    - Per category: current cycle phase + time remaining
+    - Total live submissions today
+    - Total votes cast today
+    - Quick links to each category's queue
+
+  REVIEW QUEUE PAGE (/admin/queue?category=illustration)
+  ──────────────────────────────────────────────────────
+  Layout: one submission per card, scrollable list.
+
+  Each card shows:
+    ┌─────────────────────────────────────────────────────┐
+    │ [THUMBNAIL or TEXT PREVIEW]                         │
+    │                                                     │
+    │ Title: "Sunset Dream"    by: @creator42             │
+    │ Submitted: Jan 3, 2026 10:00 AM   Words: 420        │
+    │ (for images: dimensions shown; for text: word count)│
+    │                                                     │
+    │  [👁 VIEW FULL]    [✓ APPROVE]    [✗ REJECT]       │
+    └─────────────────────────────────────────────────────┘
+
+  Clicking APPROVE:
+    - Instantly moves to next card
+    - submission.status = "live"
+    - Tiny toast: "✓ Approved"
+
+  Clicking REJECT:
+    - A single text input appears (optional rejection note)
+    - Confirm reject → submission.status = "rejected"
+    - User gets a notification (shown on their next login)
+    - Tiny toast: "✗ Rejected"
+
+  Clicking VIEW FULL:
+    - Opens submission in a modal (full image or full text)
+    - Approve / Reject buttons also present in modal
+
+  KEYBOARD SHORTCUTS for Admin (speed matters):
+    A = Approve current card
+    R = Reject current card
+    → = Next card
+    ← = Previous card
+    F = View full (toggle modal)
+
+  CYCLE MANAGEMENT (/admin/cycles)
+  ─────────────────────────────────
+  Shows cycle timeline for each category.
+  Admin can manually:
+    - Force advance to next phase (emergency)
+    - Extend a window by N days (in case of low submission count)
+    - View historical cycles
+
+  PRINCIPLE: 95% of admin work is just Approve/Reject in the queue.
+             Everything else is automatic.
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 13. UI/UX GUIDELINES
+────────────────────────────────────────────────────────────────────────────────
+
+  COLOR PALETTE (global):
+    Background:       #0D0D0D (near black)
+    Surface:          #1A1A2E (deep navy)
+    Surface Elevated: #16213E
+    Border:           #2A2A4A
+    Text Primary:     #E8E8F0
+    Text Secondary:   #9090B0
+    Text Muted:       #606080
+    Gold (rank 1):    #FFD700
+    Silver (rank 2):  #C0C0C0
+    Bronze (rank 3):  #CD7F32
+    Success:          #4ECDC4
+    Warning:          #FFE66D
+    Error:            #FF6B6B
+
+  TYPOGRAPHY:
+    Heading Font:     "Space Grotesk" (Google Fonts) — bold, modern
+    Body Font:        "Inter" (Google Fonts) — readable
+    Mono/Accent:      "DM Mono" — for counters, codes, ranks
+
+  VISUAL IDENTITY:
+    - Dark theme only (artistic platforms thrive in dark mode)
+    - Subtle gradient accents per category (from CATEGORIES[].bgGradient)
+    - Glassmorphism cards (backdrop-filter: blur; semi-transparent bg)
+    - Smooth transitions (200ms ease for most, 400ms for page transitions)
+    - Rank badges use circular icons with gradient fills
+    - Voting heart animates on click (scale pop + color fill)
+
+  LAYOUT APPROACH:
+    - Global max-width: 1280px, centered
+    - Category pages: masonry-ish grid for images, clean list for stories
+    - Single submission view: full-width content area, metadata sidebar
+    - Mobile: single column, sticky bottom vote bar
+
+  NAVIGATION:
+    - Top bar: Logo | [Category Pills] | Auth buttons
+    - Category pills auto-generated from CATEGORIES constant
+    - Active category pill gets accent color underline
+    - Admin link visible only to admins (small "Admin" badge)
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 14. CONTENT DISPLAY RULES (DIMENSIONS & ADAPTIVITY)
+────────────────────────────────────────────────────────────────────────────────
+
+  The #1 rule: NEVER distort or crop the original work.
+
+  IMAGE DISPLAY:
+  ─────────────
+  In Cards (listing view):
+    - Container: fixed width (column width), variable height
+    - Image: object-fit: contain, max-height: SUBMISSION_CARD_MAX_HEIGHT_PX
+    - Background behind letterbox areas: blurred version of image (CSS filter)
+      (This fills dead space beautifully while preserving aspect ratio)
+    - Min height: SUBMISSION_CARD_MIN_HEIGHT_PX
+
+  In Full View (single submission page):
+    - Image fills available viewport width
+    - Height: auto (natural aspect ratio preserved)
+    - Max-width: 960px (centered)
+    - Zoom: click to expand to full resolution in lightbox overlay
+
+  Portrait images (tall):
+    - Card shows centered, with blur-fill on sides
+    - Full view: scrollable if taller than viewport
+
+  Landscape images (wide):
+    - Card fits naturally
+    - Full view: fills width
+
+  TEXT DISPLAY:
+  ─────────────
+  In Cards (listing view):
+    - Shows first TEXT_PREVIEW_WORDS words
+    - Fixed card height (~300px), text truncated with "...Read More"
+    - Font: 15px body, line-height 1.7
+    - Subtle gradient fade at bottom of preview
+
+  In Full View:
+    - Full text rendered with typography spacing
+    - Chapter-break characters (—, ***) converted to styled dividers
+    - Estimated reading time shown: "~4 min read"
+    - Font size adjustable (small / medium / large) stored in localStorage
+
+  GRID BEHAVIOR:
+    - Illustration grid: 3 columns desktop, 2 tablet, 1 mobile (masonry)
+    - Story grid: 2 columns desktop, 1 tablet/mobile (list-style cards)
+    - All cards same width in their column; height is content-driven
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 15. HALL OF FAME / TEASER / ARCHIVE SYSTEM
+────────────────────────────────────────────────────────────────────────────────
+
+  TEASER (Homepage Banner):
+  ─────────────────────────
+  - Shows the #1 winner of the most recently completed cycle
+  - Per category: each category page shows its own teaser
+  - Global homepage: shows one teaser per category (side by side or tabbed)
+  - Teaser is large, full-width, cinematic
+  - Shows: title, author, vote count, "View Work" button
+  - Background: the winning image (blurred) or a typographic render for stories
+  - isTeaserActive flag in halloffame.json (only one per category is true)
+
+  HALL OF FAME PAGE:
+  ──────────────────
+  - URL: /halloffame
+  - Per category tab (or filter)
+  - Shows all past cycle winners
+  - Each entry: thumbnail + title + author + cycle + vote count
+  - Clicking any: goes to archived submission view (read-only, no voting)
+  - Sorted by most recent first
+  - Paginated: HALL_OF_FAME_PER_PAGE per page
+
+  ARCHIVE:
+  ────────
+  - All submissions from ended cycles become archived
+  - Archived submissions are read-only (no voting)
+  - Accessible via profile page (own history) and Hall of Fame (winners)
+  - "Past Cycles" link on category page: shows all cycles with their rankings
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 16. NOTIFICATION & STATE MACHINE
+────────────────────────────────────────────────────────────────────────────────
+
+  NOTIFICATION TYPES (stored in user object or simple notifications.json):
+    - submission_approved: "Your work '[title]' was approved! It's now live."
+    - submission_rejected: "Your work '[title]' was not approved. [note]"
+    - cycle_opening:       "[Category] submission window is now open!"
+    - cycle_closing_soon:  "[Category] window closes in 24 hours!"
+    - voting_started:      "Voting is live for [Category]! Cast your votes."
+    - you_won:             "🏆 You won [Category] Cycle #N! Congratulations!"
+
+  NOTIFICATION DELIVERY:
+    - Shown as badge on profile icon in navbar
+    - Notification drawer opens on click
+    - All notifications stored locally (no email for now)
+    - Mark-as-read on click
+
+  SUBMISSION STATUS STATE MACHINE:
+    pending_review → [admin approves] → live
+    pending_review → [admin rejects]  → rejected
+    live           → [cycle ends]     → archived
+    rejected       → [no transition, stays rejected]
+
+  CYCLE PHASE STATE MACHINE:
+    submission → admin_review → live → late_submission → late_review
+              → results → archive → (new cycle: submission)
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 17. FUTURE BACKEND MIGRATION NOTES
+────────────────────────────────────────────────────────────────────────────────
+
+  The local JSON schema is designed to map 1:1 to a REST API or DB:
+
+  JSON FILE          → REST ENDPOINT              → DB TABLE/COLLECTION
+  users.json         → GET/POST /api/users         → users
+  cycles.json        → GET/POST /api/cycles         → cycles
+  submissions.json   → GET/POST /api/submissions    → submissions
+  votes.json         → GET/POST /api/votes          → votes
+  halloffame.json    → GET      /api/halloffame      → halloffame
+  sessions.json      → POST     /api/auth/login      → sessions (or JWT)
+
+  Migration steps:
+    1. Write Express.js (or equivalent) routes that mirror current storage.js
+       function signatures
+    2. Replace storage.js implementation to hit API instead of files
+    3. Move ranking.js computation to server-side cron job
+    4. Replace file-based uploads with S3/Cloudinary
+    5. Replace localStorage sessions with JWT / httpOnly cookies
+    6. All constants that are currently in constants.js move to .env
+       (e.g. ADMIN_USERNAMES → env var or DB config table)
+
+  storage.js interface (MUST maintain for easy swap):
+    getUsers()
+    getUserById(id)
+    createUser(data)
+    updateUser(id, data)
+    getCycles(filters?)
+    getCycleById(id)
+    createCycle(data)
+    updateCycle(id, data)
+    getSubmissions(filters?)
+    getSubmissionById(id)
+    createSubmission(data)
+    updateSubmission(id, data)
+    getVotes(filters?)
+    createVote(data)
+    deleteVote(id)
+    getHallOfFame(filters?)
+    createHallOfFameEntry(data)
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 18. PAGE-BY-PAGE SPECIFICATION
+────────────────────────────────────────────────────────────────────────────────
+
+  PAGE: / (Home)
+  ──────────────
+  Sections:
+    1. Hero Teaser: last cycle winner(s), cinematic display
+    2. Category Grid: cards for each active category (from CATEGORIES)
+       Each card: icon, name, current phase badge, CTA button
+    3. Currently Trending: top 3 across all categories (if in live phase)
+    4. How It Works: 3-step graphic (Submit → Vote → Win)
+    5. Footer: links, cycle status summary
+
+  PAGE: /category/:id (e.g. /category/illustration)
+  ──────────────────────────────────────────────────
+  Header: Category teaser (winner of last cycle for this category)
+  Phase Banner: shows current phase + countdown
+  If SUBMISSION phase:
+    → Prominent "Submit Your Work" CTA
+  If LIVE phase:
+    → Voting is active; submissions grid with vote buttons
+  If REVIEW phase:
+    → "Submissions under review" message, no grid
+  If ARCHIVE (between cycles):
+    → "Next cycle opens in X days" countdown
+  Sections:
+    1. Phase Banner + Countdown
+    2. Trending in this category (top 3 badges)
+    3. All live submissions (grid)
+    4. Leaderboard teaser (top 5 ranks)
+    5. "View full leaderboard" link
+
+  PAGE: /category/:id/submit
+  ────────────────────────────
+  For Illustration: file upload input + title + description + tags
+  For Story: textarea (with word count live) + title + description + tags
+  Validation: size, type, word count all checked client-side before submit
+  Success state: submission card preview + "You're in! Check back when voting opens."
+
+  PAGE: /category/:id/leaderboard
+  ──────────────────────────────────
+  Ranked list of all live submissions for current cycle
+  Each row: rank badge | thumbnail | title | author | votes | vote button
+  Filter: All | Early Entries | Late Entries
+  Sort: By Rank (default) | By Recent | By Most Voted
+  Pagination: LEADERBOARD_PAGE_SIZE per page
+
+  PAGE: /submission/:id
+  ──────────────────────
+  Full-size content display (image or full text)
+  Sidebar (desktop) / below (mobile):
+    - Author info
+    - Vote button + count
+    - Current rank
+    - Cycle info
+    - Tags
+    - "More Like This" recommendations (3 items)
+
+  PAGE: /halloffame
+  ──────────────────
+  Category filter tabs
+  Winner cards (one per cycle per category)
+  Each: thumbnail/text excerpt | title | winner | cycle | votes
+  Clicking: archived submission view (read-only)
+
+  PAGE: /profile/:username
+  ──────────────────────────
+  User's bio, join date
+  Submission history (across all categories/cycles)
+  Status per submission: Live | Pending | Rejected | Archived | Won 🏆
+
+  PAGE: /admin/dashboard
+  ────────────────────────
+  Queue counts per category
+  Phase status per category
+  Recent activity log
+
+  PAGE: /admin/queue?category=:id
+  ─────────────────────────────────
+  Scrollable review cards
+  Approve / Reject / View Full per card
+  Keyboard shortcuts enabled
+
+  PAGE: /admin/cycles
+  ─────────────────────
+  Timeline view per category
+  Manual phase override (with confirmation dialog)
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 19. EDGE CASES & RULES
+────────────────────────────────────────────────────────────────────────────────
+
+  EC1: User submits and then deletes account
+    → Submission stays live (anonymized to "Deleted User")
+
+  EC2: Admin rejects all submissions in a cycle
+    → Cycle moves to results with no winner
+    → Hall of Fame: "No winner — Cycle N"
+    → Teaser: stays as previous cycle's winner
+
+  EC3: Tie in votes at end of cycle
+    → Earlier submission date wins (first-submitted wins tiebreak)
+
+  EC4: Admin review window expires with unreviewed submissions
+    → Auto-expire: submissions remain pending_review but cycle advances
+    → They are marked status: "expired_unreviewed"
+    → Admin gets a dashboard warning
+
+  EC5: User votes, then un-votes, then re-votes
+    → All three events stored in votes.json (for audit)
+    → Only final state (voted/not) counts for ranking
+
+  EC6: Category added mid-cycle of another category
+    → New category starts its own fresh cycle Day 1
+    → Does not affect other categories
+
+  EC7: Story with HTML/script tags submitted
+    → Content sanitized (strip all tags, render as plain text)
+    → Admin sees sanitized version in review
+
+  EC8: Image uploaded with EXIF location data
+    → EXIF data stripped on upload (privacy)
+
+  EC9: Submission window opens on a holiday / no traffic
+    → No automatic logic change; cycles run on calendar time, not activity
+
+  EC10: Same user creates multiple accounts to boost votes
+    → ACCOUNT_MIN_AGE_HOURS makes new accounts' votes provisional
+    → Provisional votes excluded from Wilson score
+    → Admin can see provisional vote flags in dashboard
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 20. IMPLEMENTATION ROADMAP (PHASES)
+────────────────────────────────────────────────────────────────────────────────
+
+  PHASE A — FOUNDATION (Week 1)
+  ──────────────────────────────
+  ☐ Setup folder structure
+  ☐ Write constants.js (complete, all values)
+  ☐ Write storage.js (JSON read/write layer)
+  ☐ Write auth.js (register, login, session)
+  ☐ Write cycle.js (phase engine, countdown)
+  ☐ Write utils.js (ID gen, date helpers, sanitize)
+  ☐ Initialize empty data/*.json files with correct structure
+
+  PHASE B — CORE PAGES (Week 2)
+  ──────────────────────────────
+  ☐ Home page (teaser + category grid)
+  ☐ Category page (phase-aware display)
+  ☐ Submission form (image + text variants)
+  ☐ Single submission view (full display)
+  ☐ Login / Register pages
+
+  PHASE C — RANKING & VOTING (Week 3)
+  ─────────────────────────────────────
+  ☐ Write ranking.js (Wilson score, trending)
+  ☐ Vote button component (with animation)
+  ☐ Leaderboard page
+  ☐ Rank badge component
+  ☐ Write recommendation.js
+  ☐ "More Like This" component
+
+  PHASE D — ADMIN PANEL (Week 4)
+  ──────────────────────────────
+  ☐ Admin dashboard
+  ☐ Review queue (with keyboard shortcuts)
+  ☐ Approve / Reject flow
+  ☐ Cycle management panel
+  ☐ Admin route guard
+
+  PHASE E — HALL OF FAME & POLISH (Week 5)
+  ──────────────────────────────────────────
+  ☐ Hall of Fame page
+  ☐ Archive submission view
+  ☐ Teaser system (isTeaserActive logic)
+  ☐ Notification system
+  ☐ Profile page
+  ☐ Responsive CSS (mobile pass)
+  ☐ Animations & transitions polish
+
+  PHASE F — TESTING & HARDENING (Week 6)
+  ────────────────────────────────────────
+  ☐ Cycle simulation (fast-forward time, test all phases)
+  ☐ Edge case testing (all 10 EC listed above)
+  ☐ Admin workflow timing test
+  ☐ Multi-category parallel cycle test
+  ☐ Mobile UI pass
+  ☐ Performance (large submissions.json)
+  ☐ Security review (XSS, path traversal on uploads)
+
+
+================================================================================
+ END OF DOCUMENT
+ ArtWave Project Blueprint v1.0.0
+ Generated: May 2026
+================================================================================
