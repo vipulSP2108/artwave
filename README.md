@@ -1,3 +1,6 @@
+# run commond
+# nvm use 22.12.0 && npm run dev
+
 # ArtWave — Community Art Showcase & Ranking Platform
 
 > Create. Vote. Celebrate.

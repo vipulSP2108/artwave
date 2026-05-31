@@ -32,7 +32,7 @@ export default function CategoryPage() {
 
   if (!cat) return <div className="p-8 text-center text-ink-400 font-ui">Category not found</div>;
 
-  const submitCheck = canSubmit(cycle, user?.id);
+  const submitCheck = canSubmit(cycle, user?.id, id);
   const isLive = phase === PHASE.LIVE || phase === PHASE.LATE_SUBMISSION || phase === PHASE.LATE_REVIEW;
   const isSubmission = phase === PHASE.SUBMISSION || phase === PHASE.LATE_SUBMISSION;
 

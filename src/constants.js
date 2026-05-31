@@ -53,6 +53,16 @@ export const CYCLE_LATE_SUBMIT_DAYS    = 5;
 export const CYCLE_LATE_REVIEW_DAYS    = 5;
 export const CYCLE_WRAP_UP_DAYS        = 2;
 
+// ── TESTING / DEMO MODE ────────────────────────────────────────────────────────
+export const ENABLE_TEST_MODE           = false;   // Enable faster phase transitions for testing
+export const TEST_CYCLE_SUBMISSION_HOURS    = 1;      // Minutes for submission phase (when TEST_MODE enabled)
+export const TEST_CYCLE_ADMIN_REVIEW_HOURS  = 0.5;    // Minutes for admin review phase (when TEST_MODE enabled)
+export const TEST_CYCLE_LIVE_HOURS          = 1;      // Minutes for live/voting phase (when TEST_MODE enabled)
+export const TEST_CYCLE_LATE_SUBMIT_START_HOURS = 0.5; // Minutes before late submission starts (when TEST_MODE enabled)
+export const TEST_CYCLE_LATE_SUBMIT_HOURS   = 0.5;    // Minutes for late submission phase (when TEST_MODE enabled)
+export const TEST_CYCLE_LATE_REVIEW_HOURS   = 0.5;    // Minutes for late review phase (when TEST_MODE enabled)
+export const TEST_CYCLE_WRAP_UP_HOURS       = 0.5;    // Minutes for wrap-up phase (when TEST_MODE enabled)
+
 // ── PHASES ────────────────────────────────────────────────────────────────────
 export const PHASE = {
   SUBMISSION:      'submission',
@@ -88,16 +98,22 @@ export const PHASE_COLORS = {
 export const ROLES = { VISITOR: 'visitor', USER: 'user', ADMIN: 'admin' };
 
 // ── ADMIN ACCESS ──────────────────────────────────────────────────────────────
+export const ADMIN_USERNAME             = 'admin';
+export const ADMIN_PASSWORD             = 'admin@123';
 export const ADMIN_USERNAMES            = ['admin', 'artwave_mod'];
 export const ADMIN_PANEL_PATH           = '/admin';
 export const ADMIN_SESSION_TIMEOUT_MINS = 60;
 
 // ── SUBMISSION RULES ──────────────────────────────────────────────────────────
-export const MAX_SUBMISSIONS_PER_USER_PER_CYCLE = 1;
+export const MAX_SUBMISSIONS_PER_USER_PER_CYCLE = 12;
 export const MAX_TITLE_LENGTH                   = 100;
 export const MAX_DESCRIPTION_LENGTH             = 500;
 export const MAX_TAGS_PER_SUBMISSION            = 5;
 export const MAX_TAG_LENGTH                     = 20;
+
+// ── SUBMISSION FEATURE TOGGLERS ────────────────────────────────────────────────
+export const ALLOW_MULTIPLE_IMAGE_SUBMISSIONS   = true;   // Allow users to submit multiple images per cycle
+export const ALLOW_MULTIPLE_STORY_SUBMISSIONS   = true;   // Allow users to submit multiple stories per cycle
 
 // ── VOTING RULES ──────────────────────────────────────────────────────────────
 export const MAX_VOTES_PER_HOUR      = 20;

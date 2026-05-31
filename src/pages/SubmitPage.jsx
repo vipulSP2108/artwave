@@ -1,9 +1,9 @@
 import { useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Upload, X, Tag, AlertCircle, CheckCircle } from 'lucide-react';
-import { CATEGORIES, MAX_TITLE_LENGTH, MAX_DESCRIPTION_LENGTH, MAX_TAGS_PER_SUBMISSION, PHASE } from '../constants';
+import { CATEGORIES, MAX_TITLE_LENGTH, MAX_DESCRIPTION_LENGTH, MAX_TAGS_PER_SUBMISSION, PHASE, ALLOW_MULTIPLE_IMAGE_SUBMISSIONS, ALLOW_MULTIPLE_STORY_SUBMISSIONS } from '../constants';
 import { computePhase, canSubmit } from '../cycle';
-import { getActiveCycle, createSubmission, updateUser, addNotif } from '../storage';
+import { getActiveCycle, createSubmission, updateUser, addNotif, getSubmissions } from '../storage';
 import { useApp } from '../AppContext';
 import { genId, now, fileToBase64, getImageDimensions, wordCount, sanitizeText, extractTags } from '../utils';
 
@@ -31,13 +31,16 @@ export default function SubmitPage() {
     </div>
   );
 
-  const submitCheck = canSubmit(cycle, user.id);
+  const submitCheck = canSubmit(cycle, user.id, id);
   if (!submitCheck.allowed) return (
     <div className="min-h-screen bg-ink-950 flex items-center justify-center">
       <div className="text-center p-8 max-w-md">
         <AlertCircle size={40} className="text-amber-400 mx-auto mb-4" />
         <h2 className="font-display font-bold text-xl text-ink-200 mb-2">Can't Submit Right Now</h2>
         <p className="font-ui text-ink-400 mb-4">{submitCheck.reason}</p>
+        {submitCheck.reason.includes('already submitted') && (
+          <p className="font-ui text-ink-500 text-xs mb-4">Multiple submissions are not allowed for this category in this cycle.</p>
+        )}
         <Link to={`/category/${id}`} className="text-amber-400 font-ui hover:underline">← Back to {cat.label}</Link>
       </div>
     </div>
@@ -111,6 +114,9 @@ export default function SubmitPage() {
           <Link to={`/category/${id}`} className="text-ink-500 hover:text-ink-300 text-sm font-ui">← {cat.icon} {cat.label}</Link>
           <h1 className="font-display font-black text-3xl text-ink-100 mt-2">Submit Your Work</h1>
           <p className="font-ui text-ink-400 text-sm mt-1">{cat.description}</p>
+          {(cat.displayMode === 'IMAGE' && ALLOW_MULTIPLE_IMAGE_SUBMISSIONS) || (cat.displayMode === 'TEXT' && ALLOW_MULTIPLE_STORY_SUBMISSIONS) ? (
+            <p className="font-ui text-xs text-amber-400/70 mt-3">💡 You can submit multiple entries to this category in this cycle</p>
+          ) : null}
         </div>
         <div className="space-y-5">
           <div>

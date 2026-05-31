@@ -2,6 +2,8 @@ import {
   PHASE, CYCLE_SUBMISSION_DAYS, CYCLE_ADMIN_REVIEW_DAYS,
   CYCLE_LIVE_DAYS, CYCLE_LATE_SUBMIT_START, CYCLE_LATE_SUBMIT_DAYS,
   CYCLE_LATE_REVIEW_DAYS, CYCLE_WRAP_UP_DAYS, CATEGORIES,
+  ALLOW_MULTIPLE_IMAGE_SUBMISSIONS, ALLOW_MULTIPLE_STORY_SUBMISSIONS,
+  MAX_SUBMISSIONS_PER_USER_PER_CYCLE,
 } from './constants';
 import {
   getCycles, createCycle, updateCycle, getActiveCycle,
@@ -124,14 +126,36 @@ export const syncAllCycles = () => {
   });
 };
 
-export const canSubmit = (cycle, userId) => {
+export const canSubmit = (cycle, userId, categoryId) => {
   if (!cycle) return { allowed: false, reason: 'No active cycle' };
   const phase = computePhase(cycle);
   if (phase !== PHASE.SUBMISSION && phase !== PHASE.LATE_SUBMISSION)
     return { allowed: false, reason: 'Submission window is closed' };
   if (!userId) return { allowed: false, reason: 'Login required to submit' };
-  const existing = getSubmissions({ cycleId: cycle.id, userId });
-  if (existing.length > 0) return { allowed: false, reason: 'You already submitted to this cycle' };
+  
+  // Check total submissions across all categories in this cycle
+  const allSubmissionsThisCycle = getSubmissions({ cycleId: cycle.id, userId });
+  if (allSubmissionsThisCycle.length >= MAX_SUBMISSIONS_PER_USER_PER_CYCLE) {
+    return { allowed: false, reason: `You've reached the maximum submissions for this cycle (${MAX_SUBMISSIONS_PER_USER_PER_CYCLE})` };
+  }
+  
+  // Check for existing submissions in this cycle for this specific category
+  const existingInCategory = getSubmissions({ cycleId: cycle.id, userId, categoryId });
+  if (existingInCategory.length > 0) {
+    // Determine which toggle applies based on category display mode
+    const category = CATEGORIES.find(c => c.id === categoryId);
+    if (!category) return { allowed: false, reason: 'Invalid category' };
+    
+    const allowMultiple = category.displayMode === 'IMAGE' 
+      ? ALLOW_MULTIPLE_IMAGE_SUBMISSIONS 
+      : ALLOW_MULTIPLE_STORY_SUBMISSIONS;
+    
+    if (!allowMultiple) {
+      const typeLabel = category.displayMode === 'IMAGE' ? 'image' : 'story';
+      return { allowed: false, reason: `You already submitted a ${typeLabel} to this cycle` };
+    }
+  }
+  
   return { allowed: true };
 };
 
