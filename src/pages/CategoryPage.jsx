@@ -134,8 +134,12 @@ export default function CategoryPage() {
                 <span className="text-5xl block mb-4">{cat.icon}</span>No submissions yet. Be the first!
               </div>
             ) : (
-              <div className={`grid gap-5 ${cat.displayMode==='IMAGE'?'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3':'grid-cols-1 sm:grid-cols-2'}`}>
-                {displayed.map(s => <SubmissionCard key={s.id} submission={s} showRank={sortBy==='rank'} onVoted={loadData} />)}
+              <div className={`columns-1 sm:columns-2 ${cat.displayMode==='IMAGE'?'lg:columns-3':''} gap-5 space-y-5`}>
+                {displayed.map(s => (
+                  <div key={s.id} className="break-inside-avoid">
+                    <SubmissionCard submission={s} showRank={sortBy==='rank'} onVoted={loadData} />
+                  </div>
+                ))}
               </div>
             )}
           </section>

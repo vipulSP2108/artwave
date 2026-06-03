@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { BarChart2, ArrowLeft } from 'lucide-react';
-import { CATEGORIES, LEADERBOARD_PAGE_SIZE } from '../constants';
+import { CATEGORIES, LEADERBOARD_PAGE_SIZE, PHASE } from '../constants';
 import { getActiveCycle, getSubmissions } from '../storage';
 import { rankSubmissions } from '../ranking';
+import { computePhase } from '../cycle';
 import { useApp } from '../AppContext';
 import RankBadge from '../components/RankBadge';
 import VoteButton from '../components/VoteButton';
@@ -32,6 +33,9 @@ export default function LeaderboardPage() {
 
   if (!cat) return null;
 
+  const phase = cycle ? computePhase(cycle) : null;
+  const isLive = phase === PHASE.LIVE || phase === PHASE.LATE_SUBMISSION || phase === PHASE.LATE_REVIEW;
+
   const stabilizedRanked = sortedIds.map(sid => ranked.find(r => r.id === sid)).filter(Boolean);
   const paged = stabilizedRanked.slice(0, page * LEADERBOARD_PAGE_SIZE);
 
@@ -44,11 +48,11 @@ export default function LeaderboardPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="font-display font-black text-3xl text-ink-100 flex items-center gap-2"><BarChart2 size={24} className="text-amber-400"/> Leaderboard</h1>
-            <p className="text-sm font-ui text-ink-500 mt-1">{ranked.length} submissions · Cycle #{cycle?.cycleNumber}</p>
+            <p className="text-sm font-ui text-ink-500 mt-1">{isLive ? ranked.length : 0} submissions · Cycle #{cycle?.cycleNumber}</p>
           </div>
           {cycle && <PhaseBanner cycle={cycle}/>}
         </div>
-        {ranked.length===0 ? (
+        {!isLive || ranked.length===0 ? (
           <div className="text-center py-20 text-ink-500 font-ui">No ranked submissions yet. Voting opens soon.</div>
         ) : (
           <div className="space-y-2">

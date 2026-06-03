@@ -154,9 +154,43 @@ export default function AdminQueue() {
             </div>
           )}
 
-          {/* Text preview */}
-          {!isImage && current?.contentText && (
-            <div className="p-6 border-b border-ink-700 max-h-72 overflow-y-auto">
+          {/* Story Composition or Legacy Text */}
+          {!isImage && current?.composition ? (
+            <div className="p-6 border-b border-ink-700 flex justify-center bg-ink-950 bg-[radial-gradient(#ffffff11_1px,transparent_1px)] [background-size:16px_16px]">
+              <div 
+                className="relative w-full max-w-[360px] aspect-[9/16] overflow-hidden rounded-xl shadow-2xl border border-ink-800"
+                style={{ 
+                  background: current.composition.bg.startsWith('url') 
+                    ? `${current.composition.bg} center/cover no-repeat` 
+                    : current.composition.bg 
+                }}
+              >
+                {current.composition.elements.map(el => (
+                  <div
+                    key={el.id}
+                    className="absolute pointer-events-none"
+                    style={{
+                      left: `${el.x}%`,
+                      top: `${el.y}%`,
+                      transform: 'translate(-50%, -50%)',
+                      color: el.color,
+                      fontSize: `${el.fontSize}px`,
+                      textAlign: el.align,
+                      whiteSpace: 'pre-wrap',
+                      minWidth: '50px',
+                      width: el.width ? `${el.width}%` : 'auto',
+                      fontFamily: 'var(--font-display)',
+                      fontWeight: 700,
+                      textShadow: '0 2px 10px rgba(0,0,0,0.5)',
+                    }}
+                  >
+                    {el.text}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : !isImage && current?.contentText && (
+            <div className="p-6 border-b border-ink-700 max-h-96 overflow-y-auto">
               <div className="font-body text-sm text-ink-200 leading-relaxed whitespace-pre-wrap">
                 {current.contentText}
               </div>

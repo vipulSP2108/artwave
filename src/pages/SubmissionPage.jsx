@@ -63,7 +63,41 @@ export default function SubmissionPage() {
                 <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity bg-ink-900/80 rounded-lg px-2 py-1 text-xs font-ui text-ink-300">Click to zoom</div>
               </div>
             )}
-            {sub.contentType==='text' && sub.contentText && (
+            {sub.contentType==='text' && sub.composition ? (
+              <div className="bg-ink-950 bg-[radial-gradient(#ffffff11_1px,transparent_1px)] [background-size:16px_16px] border border-ink-700 rounded-2xl overflow-hidden mb-6 flex justify-center py-12">
+                <div 
+                  className="relative w-full max-w-[360px] aspect-[9/16] overflow-hidden rounded-xl shadow-2xl border border-ink-800"
+                  style={{ 
+                    background: sub.composition.bg.startsWith('url') 
+                      ? `${sub.composition.bg} center/cover no-repeat` 
+                      : sub.composition.bg 
+                  }}
+                >
+                  {sub.composition.elements.map(el => (
+                    <div
+                      key={el.id}
+                      className="absolute pointer-events-none"
+                      style={{
+                        left: `${el.x}%`,
+                        top: `${el.y}%`,
+                        transform: 'translate(-50%, -50%)',
+                        color: el.color,
+                        fontSize: `${el.fontSize}px`,
+                        textAlign: el.align,
+                        whiteSpace: 'pre-wrap',
+                        minWidth: '50px',
+                        width: el.width ? `${el.width}%` : 'auto',
+                        fontFamily: 'var(--font-display)',
+                        fontWeight: 700,
+                        textShadow: '0 2px 10px rgba(0,0,0,0.5)',
+                      }}
+                    >
+                      {el.text}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : sub.contentType==='text' && sub.contentText && (
               <div className="bg-ink-800/50 border border-ink-700 rounded-2xl overflow-hidden mb-6">
                 <div className="flex items-center justify-between px-6 py-3 border-b border-ink-700">
                   <div className="flex items-center gap-2 text-xs font-ui text-ink-500">

@@ -11,7 +11,8 @@ export default function VoteButton({ submission, size='md', onVoted }) {
   const cycle = getActiveCycle(submission.categoryId);
   const existingVote = user ? getVoteByUserAndSub(user.id, submission.id) : null;
   const voted = !!existingVote;
-  const votable = user && canVote(cycle, submission, user.id);
+  const voteCheck = user ? canVote(cycle, submission, user) : { allowed: false, reason: 'Login to vote' };
+  const votable = voteCheck.allowed;
   const count = submission.voteCount || 0;
 
   const handleVote = () => {
@@ -32,8 +33,8 @@ export default function VoteButton({ submission, size='md', onVoted }) {
   const p = size==='sm'?'px-2 py-1 gap-1 text-xs':size==='lg'?'px-4 py-2 gap-2 text-base':'px-3 py-1.5 gap-1.5 text-sm';
 
   return (
-    <button onClick={handleVote} disabled={!votable}
-      title={!user?'Login to vote':!votable?(submission.userId===user?.id?"Can't vote your own":'Voting not open'):voted?'Remove vote':'Vote'}
+    <button onClick={handleVote} disabled={!votable && !voted}
+      title={voted ? 'Remove vote' : voteCheck.reason}
       className={`flex items-center ${p} rounded-full border font-ui font-semibold transition-all duration-200
         ${voted?'border-rose-500 bg-rose-500/10 text-rose-400'
           :votable?'border-ink-600 bg-ink-800 text-ink-300 hover:border-rose-500/50 hover:text-rose-400'

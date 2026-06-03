@@ -4,10 +4,11 @@ import {
   CYCLE_LATE_REVIEW_DAYS, CYCLE_WRAP_UP_DAYS, CATEGORIES,
   ALLOW_MULTIPLE_IMAGE_SUBMISSIONS, ALLOW_MULTIPLE_STORY_SUBMISSIONS,
   MAX_SUBMISSIONS_PER_USER_PER_CYCLE,
+  CAN_VOTE_OWN_SUBMISSION, ACCOUNT_MIN_AGE_HOURS, MAX_VOTES_PER_HOUR
 } from './constants';
 import {
   getCycles, createCycle, updateCycle, getActiveCycle,
-  getSubmissions, createHOFEntry, updateSubmission, getHOF,
+  getSubmissions, createHOFEntry, updateSubmission, getHOF, getVotes,
 } from './storage';
 import { genId, now, addDays } from './utils';
 import { rankSubmissions } from './ranking';
@@ -159,11 +160,33 @@ export const canSubmit = (cycle, userId, categoryId) => {
   return { allowed: true };
 };
 
-export const canVote = (cycle, submission, userId) => {
-  if (!cycle || !submission || !userId) return false;
+export const canVote = (cycle, submission, user) => {
+  if (!cycle || !submission || !user) return { allowed: false, reason: 'Not logged in' };
   const phase = computePhase(cycle);
-  if (![PHASE.LIVE, PHASE.LATE_SUBMISSION, PHASE.LATE_REVIEW].includes(phase)) return false;
-  if (submission.userId === userId) return false;
-  return true;
+  if (![PHASE.LIVE, PHASE.LATE_SUBMISSION, PHASE.LATE_REVIEW].includes(phase)) {
+    return { allowed: false, reason: 'Voting not open' };
+  }
+  
+  if (!CAN_VOTE_OWN_SUBMISSION && submission.userId === user.id) {
+    return { allowed: false, reason: "Can't vote your own" };
+  }
+
+  if (ACCOUNT_MIN_AGE_HOURS > 0 && user.createdAt) {
+    const minAgeMs = ACCOUNT_MIN_AGE_HOURS * 60 * 60 * 1000;
+    if (new Date() - new Date(user.createdAt) < minAgeMs) {
+      return { allowed: false, reason: `Account must be ${ACCOUNT_MIN_AGE_HOURS}h old to vote` };
+    }
+  }
+
+  if (MAX_VOTES_PER_HOUR > 0) {
+    const userVotes = getVotes({ userId: user.id });
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const recentVotes = userVotes.filter(v => new Date(v.timestamp) > oneHourAgo);
+    if (recentVotes.length >= MAX_VOTES_PER_HOUR) {
+      return { allowed: false, reason: `Max ${MAX_VOTES_PER_HOUR} votes/hr reached` };
+    }
+  }
+
+  return { allowed: true, reason: 'Vote' };
 };
 

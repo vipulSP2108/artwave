@@ -21,12 +21,24 @@ export default function localApiPlugin() {
         if (req.url === '/api/init' && req.method === 'GET') {
           try {
             const files = await fs.readdir(dataDir);
-            const data = {};
+            const isAdmin = req.headers['x-user-role'] === 'admin';
             for (const file of files) {
               if (file.endsWith('.json')) {
                 const key = file.replace('.json', '');
                 const content = await fs.readFile(path.join(dataDir, file), 'utf-8');
-                data[key] = JSON.parse(content || '[]');
+                let parsed = JSON.parse(content || '[]');
+                
+                // Mask anonymous submissions for non-admins
+                if (key === 'submissions' && !isAdmin) {
+                  parsed = parsed.map(sub => {
+                    if (sub.isAnonymous) {
+                      return { ...sub, userId: 'anon', username: 'Anonymous' };
+                    }
+                    return sub;
+                  });
+                }
+                
+                data[key] = parsed;
               }
             }
             res.setHeader('Content-Type', 'application/json');
@@ -47,9 +59,29 @@ export default function localApiPlugin() {
           req.on('end', async () => {
             try {
               const filePath = path.join(dataDir, `${collection}.json`);
-              // Verify valid JSON before writing
-              JSON.parse(body);
-              await fs.writeFile(filePath, body, 'utf-8');
+              let incomingData = JSON.parse(body);
+              
+              if (collection === 'submissions') {
+                try {
+                  const existingContent = await fs.readFile(filePath, 'utf-8');
+                  const existingData = JSON.parse(existingContent || '[]');
+                  
+                  // Smart merge: restore true identity for anonymous submissions
+                  incomingData = incomingData.map(inc => {
+                    if (inc.isAnonymous && inc.userId === 'anon') {
+                      const ex = existingData.find(e => e.id === inc.id);
+                      if (ex) {
+                        return { ...inc, userId: ex.userId, username: ex.username };
+                      }
+                    }
+                    return inc;
+                  });
+                } catch (e) {
+                  // File might not exist yet, safe to ignore
+                }
+              }
+              
+              await fs.writeFile(filePath, JSON.stringify(incomingData, null, 2), 'utf-8');
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify({ success: true }));
             } catch (e) {

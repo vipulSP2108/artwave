@@ -33,29 +33,51 @@ export default function SubmissionCard({ submission, showRank = false, trending 
 
       {/* Image */}
       {isImage && localSub.contentUrl && (
-        <div className="relative overflow-hidden bg-ink-900"
-          style={{ minHeight: 200, maxHeight: 480 }}>
+        <div className="relative overflow-hidden bg-ink-900 w-full">
           <img src={localSub.contentUrl} alt={localSub.title}
-            className="w-full h-full object-contain block"
-            style={{ maxHeight: 480, minHeight: 200 }} />
-          {/* Blurred bg fill for letterboxing */}
-          <div className="absolute inset-0 -z-10">
-            <img src={localSub.contentUrl} alt="" aria-hidden
-              className="w-full h-full object-cover blur-xl scale-110 opacity-40" />
-          </div>
+            className="w-full h-auto block" />
         </div>
       )}
 
-      {/* Text preview */}
-      {!isImage && (
-        <div className="p-5 pb-3 min-h-[180px] relative overflow-hidden"
-          style={{ background: cat?.bgGradient }}>
+      {/* Story Composition or Legacy Text */}
+      {!isImage && localSub.composition ? (
+        <div 
+          className="relative w-full aspect-[9/16] overflow-hidden"
+          style={{ 
+            background: localSub.composition.bg.startsWith('url') 
+              ? `${localSub.composition.bg} center/cover no-repeat` 
+              : localSub.composition.bg 
+          }}
+        >
+          {localSub.composition.elements.map(el => (
+            <div
+              key={el.id}
+              className="absolute pointer-events-none"
+              style={{
+                left: `${el.x}%`,
+                top: `${el.y}%`,
+                transform: 'translate(-50%, -50%)',
+                color: el.color,
+                fontSize: `${el.fontSize}px`,
+                textAlign: el.align,
+                whiteSpace: 'pre-wrap',
+                minWidth: '50px',
+                width: el.width ? `${el.width}%` : 'auto',
+                fontFamily: 'var(--font-display)',
+                fontWeight: 700,
+                textShadow: '0 2px 10px rgba(0,0,0,0.5)',
+              }}
+            >
+              {el.text}
+            </div>
+          ))}
+        </div>
+      ) : !isImage && (
+        <div className="p-6 relative overflow-hidden" style={{ background: cat?.bgGradient }}>
           <div className="absolute inset-0 bg-ink-900/70" />
-          <div className="relative font-body text-sm leading-relaxed text-ink-200 line-clamp-6">
-            {previewText(localSub.contentText || '', 80)}
+          <div className="relative font-body text-sm leading-relaxed text-ink-200 whitespace-pre-wrap">
+            {localSub.contentText}
           </div>
-          <div className="absolute bottom-0 left-0 right-0 h-12
-            bg-gradient-to-t from-ink-900 to-transparent" />
         </div>
       )}
 

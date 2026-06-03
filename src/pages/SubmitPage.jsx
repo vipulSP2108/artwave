@@ -3,9 +3,10 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Upload, X, Tag, AlertCircle, CheckCircle } from 'lucide-react';
 import { CATEGORIES, MAX_TITLE_LENGTH, MAX_DESCRIPTION_LENGTH, MAX_TAGS_PER_SUBMISSION, PHASE, ALLOW_MULTIPLE_IMAGE_SUBMISSIONS, ALLOW_MULTIPLE_STORY_SUBMISSIONS } from '../constants';
 import { computePhase, canSubmit } from '../cycle';
-import { getActiveCycle, createSubmission, updateUser, addNotif, getSubmissions } from '../storage';
+import { getActiveCycle, createSubmission, updateUser, getSubmissions } from '../storage';
 import { useApp } from '../AppContext';
 import { genId, now, fileToBase64, getImageDimensions, wordCount, sanitizeText, extractTags } from '../utils';
+import StoryEditor from '../components/StoryEditor';
 
 export default function SubmitPage() {
   const { id } = useParams();
@@ -16,9 +17,11 @@ export default function SubmitPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [text, setText] = useState('');
+  const [storyComposition, setStoryComposition] = useState({ bg: '', elements: [] });
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState('');
   const [imagePreview, setImagePreview] = useState(null);
+  const [isAnonymous, setIsAnonymous] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
@@ -66,25 +69,31 @@ export default function SubmitPage() {
     if (!title.trim()) return setError('Title is required');
     if (cat.displayMode==='IMAGE' && !imagePreview) return setError('Please upload an image');
     if (cat.displayMode==='TEXT') {
-      const wc = wordCount(text);
-      if (wc < (cat.minWords||50)) return setError(`Min ${cat.minWords} words (you have ${wc})`);
-      if (wc > (cat.maxWords||5000)) return setError(`Max ${cat.maxWords} words`);
+      if (storyComposition.elements.length === 0) return setError('Please add at least one text element to your story');
     }
     setSubmitting(true);
     try {
-      const autoTags = cat.displayMode==='TEXT' ? extractTags(text,3) : [];
+      // Gather text content for tags/wordcount
+      let fullText = text;
+      if (cat.displayMode === 'TEXT') {
+        fullText = storyComposition.elements.map(el => el.text).join(' ');
+      }
+      const autoTags = cat.displayMode==='TEXT' ? extractTags(fullText,3) : [];
       const allTags = [...new Set([...tags,...autoTags])].slice(0, MAX_TAGS_PER_SUBMISSION);
       const phase = cycle ? computePhase(cycle) : null;
       const dims = imagePreview ? await getImageDimensions(imagePreview) : {};
+      
       createSubmission({
         id: genId('sub'), cycleId: cycle.id, categoryId: id,
         userId: user.id, username: user.username,
         title: sanitizeText(title), description: sanitizeText(description),
         contentType: cat.displayMode==='IMAGE' ? 'image' : 'text',
         contentUrl: imagePreview||null,
-        contentText: cat.displayMode==='TEXT' ? sanitizeText(text) : null,
+        contentText: cat.displayMode==='TEXT' ? sanitizeText(fullText) : null,
+        composition: cat.displayMode==='TEXT' ? storyComposition : null,
         contentWidth: dims.width||0, contentHeight: dims.height||0,
         tags: allTags, isLateEntry: phase===PHASE.LATE_SUBMISSION,
+        isAnonymous,
         status: 'pending_review', adminNote: null, reviewedBy: null, reviewedAt: null,
         submittedAt: now(), voteCount: 0, wilsonScore: 0, trendScore: 0, rank: null,
       });
@@ -106,10 +115,9 @@ export default function SubmitPage() {
     </div>
   );
 
-  const wc = cat.displayMode==='TEXT' ? wordCount(text) : 0;
   return (
     <div className="min-h-screen bg-ink-950">
-      <div className="max-w-2xl mx-auto px-4 py-10">
+      <div className="max-w-4xl mx-auto px-4 py-10">
         <div className="mb-8">
           <Link to={`/category/${id}`} className="text-ink-500 hover:text-ink-300 text-sm font-ui">← {cat.icon} {cat.label}</Link>
           <h1 className="font-display font-black text-3xl text-ink-100 mt-2">Submit Your Work</h1>
@@ -118,7 +126,7 @@ export default function SubmitPage() {
             <p className="font-ui text-xs text-amber-400/70 mt-3">💡 You can submit multiple entries to this category in this cycle</p>
           ) : null}
         </div>
-        <div className="space-y-5">
+        <div className="space-y-6">
           <div>
             <label className="block text-xs font-ui font-semibold text-ink-400 uppercase tracking-wider mb-2">Title <span className="text-rose-400">*</span></label>
             <input value={title} onChange={e=>setTitle(e.target.value)} maxLength={MAX_TITLE_LENGTH} placeholder="Give your work a title…"
@@ -144,12 +152,9 @@ export default function SubmitPage() {
           {cat.displayMode==='TEXT' && (
             <div>
               <label className="block text-xs font-ui font-semibold text-ink-400 uppercase tracking-wider mb-2">
-                Your Story <span className="text-rose-400">*</span>
-                <span className="ml-auto float-right font-normal normal-case text-ink-500">{wc} / {cat.maxWords} words</span>
+                Design Your Story <span className="text-rose-400">*</span>
               </label>
-              <textarea value={text} onChange={e=>setText(e.target.value)} rows={14} placeholder="Begin your story…"
-                className="w-full bg-ink-800 border border-ink-600 rounded-xl px-4 py-3 text-ink-200 font-body text-sm leading-relaxed placeholder-ink-600 resize-none focus:outline-none focus:border-amber-400/50 transition-colors" />
-              <p className={`text-xs font-ui mt-1 ${wc<(cat.minWords||50)?'text-ink-500':'text-green-500'}`}>Min {cat.minWords} words required</p>
+              <StoryEditor onChange={setStoryComposition} />
             </div>
           )}
           <div>
@@ -172,6 +177,20 @@ export default function SubmitPage() {
               <button onClick={addTag} disabled={tags.length>=MAX_TAGS_PER_SUBMISSION} className="px-3 py-2 bg-ink-700 border border-ink-600 rounded-xl text-ink-300 hover:bg-ink-600 transition-colors disabled:opacity-50"><Tag size={15}/></button>
             </div>
           </div>
+          
+          <div className="flex items-center gap-3 p-4 bg-ink-800/50 border border-ink-700 rounded-xl">
+            <div 
+              className={`w-10 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${isAnonymous ? 'bg-amber-500' : 'bg-ink-700'}`}
+              onClick={() => setIsAnonymous(!isAnonymous)}
+            >
+              <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${isAnonymous ? 'translate-x-4' : ''}`} />
+            </div>
+            <div>
+              <div className="text-sm font-ui font-semibold text-ink-200 mb-0.5">Submit Anonymously</div>
+              <div className="text-xs font-ui text-ink-500">Hide your identity from the public. Admins will still know it's you.</div>
+            </div>
+          </div>
+
           {error && <div className="flex items-center gap-2 p-3 bg-rose-900/20 border border-rose-700/30 rounded-xl text-rose-400 text-sm font-ui"><AlertCircle size={16}/>{error}</div>}
           <button onClick={handleSubmit} disabled={submitting}
             className="w-full py-3.5 rounded-xl font-ui font-bold text-black text-base transition-all hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed"

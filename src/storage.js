@@ -13,7 +13,12 @@ let _isInitialized = false;
 export const initStorage = async () => {
   if (_isInitialized) return;
   try {
-    const res = await fetch('/api/init');
+    const session = getSession();
+    const headers = {};
+    if (session && session.role) {
+      headers['X-User-Role'] = session.role;
+    }
+    const res = await fetch('/api/init', { headers });
     if (res.ok) {
       const data = await res.json();
       // Only copy keys that match our STORAGE_KEYS (remove 'artwave_' prefix for mapping)
